@@ -1,13 +1,10 @@
 -- get.lua — установщик Minecraft 3D ОДНОЙ КОМАНДОЙ.
--- Использует встроенный wget (работает с HTTPS в CC:Tweaked 1.95+).
--- Если wget не сработает — пробует http.get.
+-- Скачивает все файлы и сразу предлагает запустить игру.
+-- Больше НЕ запускает installer.lua — он не нужен, файлы уже на месте.
 --
 -- Запуск:
---   pastebin run (если этот код залит на pastebin)
---   ИЛИ скопируй содержимое get.lua в файл /get на компьютере и запусти /get
---
--- Можно скачать через wget напрямую:
---   wget run https://raw.githubusercontent.com/.../get.lua
+--   wget https://raw.githubusercontent.com/vanyachickenganidanya-lgtm/minecraftforcctweaked/main/get.lua /get
+--   /get
 
 local REPO = "vanyachickenganidanya-lgtm/minecraftforcctweaked"
 local BRANCH = "main"
@@ -18,9 +15,8 @@ local function say(s) term.setTextColour(colours.cyan); print(s); term.setTextCo
 local function ok(s) term.setTextColour(colours.lime); print(s); term.setTextColour(colours.white) end
 local function err(s) term.setTextColour(colours.red); print(s); term.setTextColour(colours.white) end
 
--- Список файлов
+-- Список файлов (все, кроме installer.lua и get.lua — они не нужны игре)
 local FILES = {
-    {"installer.lua",            DEST .. "/installer.lua"},
     {"minecraft3d.lua",          DEST .. "/minecraft3d.lua"},
     {"src/math3d.lua",           DEST .. "/src/math3d.lua"},
     {"src/framebuffer.lua",      DEST .. "/src/framebuffer.lua"},
@@ -35,7 +31,6 @@ local FILES = {
 -- Скачивание через wget (встроен в CC:Tweaked, поддерживает HTTPS)
 local function downloadWget(url, dst)
     local ok_run, err_msg = pcall(function()
-        -- shell.run("wget", url, dst) — wget сам создаёт файл
         local result = shell.run("wget", url, dst)
         if not result then error("wget вернул false") end
     end)
@@ -64,14 +59,11 @@ local function downloadHttp(url, dst)
     return ok_run, err_msg
 end
 
--- Скачать одним из способов
 local function download(url, dst)
-    -- Сначала пробуем wget
     local ok1, e1 = downloadWget(url, dst)
     if ok1 and fs.exists(dst) and fs.getSize(dst) > 0 then
         return "wget"
     end
-    -- Fallback: http
     local ok2, e2 = downloadHttp(url, dst)
     if ok2 and fs.exists(dst) and fs.getSize(dst) > 0 then
         return "http"
@@ -110,19 +102,37 @@ print()
 if failed > 0 then
     err("[X] Скачано с ошибками: " .. failed .. " из " .. #FILES)
     print()
-    say("Возможные причины:")
-    print("  1) На компьютере не включён HTTP API (настройки сервера)")
-    print("  2) Устаревшая версия CC:Tweaked (< 1.95) — нет HTTPS в wget")
-    print("  3) Нет доступа к raw.githubusercontent.com")
-    print()
-    say("Альтернатива: скачай файлы вручную с")
-    print("  " .. BASE)
-    print("и положи в " .. DEST)
+    say("Проверь, что:")
+    print("  1) На компьютере включён HTTP/HTTPS")
+    print("  2) Версия CC:Tweaked >= 1.95")
     return
+end
+
+-- Проверяем Advanced Monitor
+local hasAdv = false
+for _, name in ipairs(peripheral.getNames()) do
+    if peripheral.getType(name) == "monitor" then
+        local p = peripheral.wrap(name)
+        if p and p.setTextScale then hasAdv = true; break end
+    end
 end
 
 ok("[OK] Все файлы скачаны в " .. DEST)
 print()
-say("[*] Запускаю установщик...")
-print()
-shell.run(DEST .. "/installer")
+if not hasAdv then
+    term.setTextColour(colours.yellow)
+    print("[!] ВНИМАНИЕ: Advanced Monitor не найден.")
+    print("    Поставь Advanced Monitor рядом с компьютером для запуска игры.")
+    term.setTextColour(colours.white)
+    print()
+end
+
+say("[*] Запустить игру сейчас? (y/n)")
+local ans = read()
+if ans == "y" or ans == "Y" or ans == "" then
+    if hasAdv then
+        shell.run(DEST .. "/minecraft3d")
+    else
+        err("Не могу запустить: нет Advanced Monitor.")
+    end
+end
