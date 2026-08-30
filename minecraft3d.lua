@@ -13,24 +13,28 @@ end
 
 local SCRIPT_DIR = scriptDir()
 print("[minecraft3d] Скрипт в: " .. SCRIPT_DIR)
+-- Гарантируем trailing slash (CC:Tweaked fs.getDir может вернуть как с, так и без)
+if not SCRIPT_DIR:sub(-1):match("[/\\]") then
+    SCRIPT_DIR = SCRIPT_DIR .. "/"
+end
 local SRC_DIR = SCRIPT_DIR .. "src/"
 print("[minecraft3d] Модули в: " .. SRC_DIR)
 
 -- Свой загрузчик модулей, чтобы не зависеть от require() и его хитрого поведения
 -- в CC:Tweaked (которая ищет модули относительно текущей программы).
--- Используем обычный dofile с абсолютным путём + кеш.
+-- Используем обычный loadfile с абсолютным путём + кеш.
 local moduleCache = {}
 local function loadModule(name)
     if moduleCache[name] then return moduleCache[name] end
     local path = SRC_DIR .. name .. ".lua"
     if not fs.exists(path) then
-        error("Модуль не найден: " .. path)
+        error("Module not found: " .. path)
     end
-    -- Загружаем в чистое окружение, чтобы не наследовать локалки
     local chunk, err = loadfile(path)
-    if not chunk then error("Ошибка загрузки " .. path .. ": " .. tostring(err)) end
-    local ok, result = pcall(chunk)
-    if not ok then error("Ошибка выполнения " .. path .. ": " .. tostring(result)) end
+    if not chunk then
+        error("Failed to load " .. path .. ": " .. tostring(err))
+    end
+    local result = chunk()
     moduleCache[name] = result
     return result
 end
@@ -38,10 +42,9 @@ end
 -- Эмулируем require() через наш загрузчик
 local origRequire = require
 local function myRequire(name)
-    -- Пробуем наш загрузчик
     local ok, mod = pcall(loadModule, name)
     if ok then return mod end
-    -- Fallback к стандартному require
+    -- Если не нашли в src/ — пробуем стандартный require
     return origRequire(name)
 end
 
