@@ -131,6 +131,8 @@ say("[*] Запустить игру сейчас? (y/n)")
 local ans = read()
 if ans == "y" or ans == "Y" or ans == "" then
     if hasAdv then
+        -- Переходим в директорию игры и запускаем оттуда (важно для require())
+        shell.setDir(DEST)
         shell.run(DEST .. "/minecraft3d")
     else
         err("Не могу запустить: нет Advanced Monitor.")
